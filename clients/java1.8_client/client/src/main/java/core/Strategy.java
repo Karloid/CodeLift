@@ -51,16 +51,15 @@ public class Strategy extends BaseStrategy {
 
     private void doMove() {
         for (Passenger p : allPass) {
-            if (p.hasElevator() || p.getState() >= P_STATE_USING_ELEVATOR) {
+            if (p.getState() >= P_STATE_USING_ELEVATOR) {
                 continue;
             }
 
             List<Elevator> candidates = new ArrayList<>();
             for (Elevator e : myElevators) {
                 if (e.getPassengers().size() < 20
-                        && Objects.equals(e.getFloor(), p.getFromFloor())
-                        && (myPassengers.contains(p)
-                        || e.getTimeOnFloor() > 40)) {
+                        && Objects.equals(e.getFloor(), p.getFloor())
+                        ) {
                     candidates.add(e);
                 }
             }
@@ -83,7 +82,19 @@ public class Strategy extends BaseStrategy {
                     goToFloor(e, min.getDestFloor());
                 } else {
                     Integer floor = e.getFloor();
-                    if (floor == 1) {
+
+                    Set<Integer> floorsWithMyP = new HashSet<>();
+                    for (Passenger myPassenger : allPass) {
+                        if (myPassenger.getState() == E_STATE_WAITING) {
+                            //TODO look at other elevators
+                            floorsWithMyP.add(myPassenger.getFloor());
+                        }
+                    }
+
+                    if (!floorsWithMyP.isEmpty()) {
+                        Integer nearCrowdFloor = Collections.min(floorsWithMyP, Comparator.comparing(o -> Math.abs(o - floor)));
+                        goToFloor(e, nearCrowdFloor);
+                    } else if (floor == 1) {
                         goToFloor(e, 2);
                     } else {
                         goToFloor(e, floor - 1);
@@ -94,7 +105,7 @@ public class Strategy extends BaseStrategy {
     }
 
     private double getDistance(Passenger p, Elevator o) {
-        return Math.abs(getElX(o) - p.getX());
+        return Math.abs(getElX(o) + 300 - (p.getX() + 300));
     }
 
     private void setElevatorToPass(Passenger p, Elevator e) {
@@ -124,38 +135,53 @@ public class Strategy extends BaseStrategy {
         if (e.getTimeOnFloor() < 40) {
             return false;
         }
-        if (e.getPassengers().size() > 5) {
+        if (e.getPassengers().size() == 20) {
             return true;
         }
 
         if (nobodyOnFloor(e.getFloor())) {
             return true;
         }
-        if (e.getTimeOnFloor() > 200) {
+       /* if (e.getTimeOnFloor() > 200) {
             return true;
-        }
+        }*/
 
         return false;
     }
 
     private boolean nobodyOnFloor(Integer floor) {
         for (Passenger pass : allPass) {
-            if (Objects.equals(pass.getFloor(), floor) && Objects.equals(pass.getFromFloor(), floor)) {
+            if (Objects.equals(pass.getFloor(), floor) && Objects.equals(pass.getFromFloor(), floor)
+                    && (pass.getState() == P_STATE_WAITING_ELEVATOR ||
+                    (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && isMyElevator(pass.getElevator()))
+            )) {
                 return false;
             }
         }
         return true;
     }
 
+    private boolean isMyElevator(Integer elevator) {
+        if (elevator == null) {
+            return false;
+        }
+        for (Elevator myElevator : myElevators) {
+            if (myElevator.getId().equals(elevator)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private int getElX(Elevator o1) {
         switch (o1.getId()) {
-            case 1:
-                return -300;
-            case 3:
-                return -220;
-            case 5:
-                return -140;
             case 7:
+                return -300;
+            case 5:
+                return -220;
+            case 3:
+                return -140;
+            case 1:
                 return -60;
             case 2:
                 return 60;
