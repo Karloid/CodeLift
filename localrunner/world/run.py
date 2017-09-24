@@ -16,7 +16,7 @@ import tornado.ioloop
 import tornado.gen
 import gzip
 
-
+print 'server started'
 class Client(object):
     max_client_time = int(os.environ.get('MAX_CLIENT_TIME', 120))
 
@@ -46,7 +46,7 @@ class Client(object):
         message = []
         try:
             before_read_time = datetime.now()
-            message = yield tornado.gen.with_timeout(timedelta(seconds=10), self.stream.read_until('\n'))
+            message = yield tornado.gen.with_timeout(timedelta(seconds=180), self.stream.read_until('\n'))
             tick_time = datetime.now() - before_read_time
             message = message.strip()
             try:
@@ -112,8 +112,10 @@ class WorldHandler(object):
 
         if self.red_client is None:
             self.red_client = current_client
+            print 'connected red'
         elif self.blue_client is None:
             self.blue_client = current_client
+            print 'connected blue - started'
             self.start()
         else:
             pass

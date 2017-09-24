@@ -48,6 +48,7 @@ public class Client {
         if (message == null) {
             System.exit(1);
         }
+        System.out.println("Connected");
         if ((message.get("message")).equals("beginning")) {
             strategyLoop(reader);
         }
@@ -61,6 +62,7 @@ public class Client {
                 break;
             }
             clientSocket.write(ByteBuffer.wrap(this.dumpMessage(api.turn(object)).getBytes()));
+            //System.out.println("loop");
         }
     }
 
