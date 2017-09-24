@@ -64,6 +64,7 @@ public class API {
             this.strategy.onTick(pair.getKey().getKey(), pair.getKey().getValue(), pair.getValue().getKey(), pair.getValue().getValue());
         } catch (Exception e) {
             debug.exception(e);
+            e.printStackTrace();
         }
 
         JSONArray resultArray = new JSONArray();

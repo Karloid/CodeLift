@@ -44,6 +44,9 @@ public class Strategy extends BaseStrategy {
 
 
         doMove();
+        if (tick == 7200) {
+            print("end");
+        }
     }
 
     private void doMove() {
@@ -54,38 +57,71 @@ public class Strategy extends BaseStrategy {
 
             List<Elevator> candidates = new ArrayList<>();
             for (Elevator e : myElevators) {
-                if (Objects.equals(e.getFloor(), p.getFromFloor()) && (myPassengers.contains(p) || e.getTimeOnFloor() > 40)) {
+                if (e.getPassengers().size() < 20
+                        && Objects.equals(e.getFloor(), p.getFromFloor())
+                        && (myPassengers.contains(p)
+                        || e.getTimeOnFloor() > 40)) {
                     candidates.add(e);
                 }
             }
 
-            Elevator min = Collections.min(candidates, Comparator.comparingDouble(o -> Math.abs(getElX(o) - p.getX())));
+            if (!candidates.isEmpty()) {
+                Elevator min = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
 
-            if (min != null) {
-                p.setElevator(min);
+                setElevatorToPass(p, min);
             }
         }
 
         for (Elevator e : myElevators) {
             if (elevatorMustGo(e)) {
-                Passenger min = Collections.min(e.getPassengers(), Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
+                Passenger min = null;
+                if (e.getPassengers() != null && !e.getPassengers().isEmpty()) {
+                    min = Collections.min(e.getPassengers(), Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
+                }
 
                 if (min != null) {
-                    e.goToFloor(min.getDestFloor());
+                    goToFloor(e, min.getDestFloor());
                 } else {
                     Integer floor = e.getFloor();
                     if (floor == 1) {
-                        e.goToFloor(2);
+                        goToFloor(e, 2);
                     } else {
-                        e.goToFloor(floor - 1);
+                        goToFloor(e, floor - 1);
                     }
                 }
             }
         }
     }
 
+    private double getDistance(Passenger p, Elevator o) {
+        return Math.abs(getElX(o) - p.getX());
+    }
+
+    private void setElevatorToPass(Passenger p, Elevator e) {
+        print(" pass: " + (myPassengers.contains(p) ? "MY" : "ENEMY") + " " + p.getId() +
+                " set elevator " + e.getId() + " dist: " + getDistance(p, e)
+                + " elevator state " + e.getState() + " timeOnFloor "
+                + e.getTimeOnFloor() + " elevat must go " + elevatorMustGo(e));
+        p.setElevator(e);
+    }
+
+    private void goToFloor(Elevator e, Integer destFloor) {
+        String msg = "Lift: " + e.getId() + " go to floor " + destFloor + " people inside " + e.getPassengers().size();
+        print(msg);
+        e.goToFloor(destFloor);
+    }
+
+    private void print(String msg) {
+        System.out.println(tick + ": " + msg);
+        log(msg);
+    }
+
     private boolean elevatorMustGo(Elevator e) {
+
         if (e.getState() == E_STATE_MOVING) {
+            return false;
+        }
+        if (e.getTimeOnFloor() < 40) {
             return false;
         }
         if (e.getPassengers().size() > 5) {
