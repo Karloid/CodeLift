@@ -234,7 +234,10 @@ public class Strategy extends BaseStrategy {
     }
 
     private int getPoints(Passenger passenger) {
-        return myPassengers.contains(passenger) ? 1 : 2;
+        boolean isMy = myPassengers.contains(passenger);
+        int points = Math.abs(passenger.getDestFloor() - passenger.getFromFloor()) * 10;
+
+        return points * (isMy ? 1 : 2);
     }
 
     private Integer getNearestFloor(Elevator e, Set<Integer> floorsWithP) {
@@ -285,7 +288,10 @@ public class Strategy extends BaseStrategy {
         }
 
         if (!noMorePickUps && nobodyOnFloor(e.getFloor())) {
-            return true;
+
+            if (tick > 2000 || !e.getFloor().equals(1)) {
+                return true;
+            }
         }
        /* if (e.getTimeOnFloor() > 200) {
             return true;
