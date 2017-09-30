@@ -75,9 +75,17 @@ public class Strategy extends BaseStrategy {
             }
 
             if (!candidates.isEmpty()) {
-                Elevator min = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+                Elevator min;
+                min = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+              /*  if (tick > 40) {  //TODO detect distance to enemy elevators and send passengers to most far my elevator
+                    min = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+                } else {
+                    min = Collections.max(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+                }*/
 
+                //TODO consider group passengers
                 setElevatorToPass(p, min);
+
             }
         }
 
