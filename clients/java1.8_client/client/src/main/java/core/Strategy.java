@@ -110,7 +110,7 @@ public class Strategy extends BaseStrategy {
                     if (destFloor > eFloor) {
                         direction += points;
                     } else if (destFloor < eFloor) {
-                        direction -= points;
+                        direction -= points * 1.3; // downward is preferable
                     } else {
                         print(e.getId() + " strange passenger, same floor " + destFloor);
                     }
@@ -133,7 +133,7 @@ public class Strategy extends BaseStrategy {
                 if (!passengers.isEmpty()) {
                     nearPassenger = Collections.min(passengers, Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
                     Passenger buzyPass = null;
-                    if (noMorePickUps) {
+                    if (noMorePickUps) { //looking for most profit floor
                         List<Map.Entry<Passenger, Integer>> passFloors = new ArrayList<>();
 
                         for (Passenger passenger : e.getPassengers()) {
@@ -283,11 +283,16 @@ public class Strategy extends BaseStrategy {
         if (e.getTimeOnFloor() < 40) {
             return false;
         }
+
+        if (noMorePickUps) {
+            return true;
+        }
+
         if (e.getPassengers().size() == 20) {
             return true;
         }
 
-        if (!noMorePickUps && nobodyOnFloor(e.getFloor())) {
+        if (nobodyOnFloor(e.getFloor())) {
 
             if (tick > 2000 || !e.getFloor().equals(1)) {
                 return true;
