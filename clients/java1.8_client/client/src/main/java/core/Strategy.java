@@ -105,7 +105,7 @@ public class Strategy extends BaseStrategy {
                 int direction = 0;
 
                 for (Passenger passenger : passengers) {
-                    int points = myPassengers.contains(passenger) ? 1 : 2;
+                    int points = getPoints(passenger);
                     Integer destFloor = passenger.getDestFloor();
                     if (destFloor > eFloor) {
                         direction += points;
@@ -132,6 +132,47 @@ public class Strategy extends BaseStrategy {
 
                 if (!passengers.isEmpty()) {
                     nearPassenger = Collections.min(passengers, Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
+                    Passenger buzyPass = null;
+                    if (noMorePickUps) {
+                        List<Map.Entry<Passenger, Integer>> passFloors = new ArrayList<>();
+
+                        for (Passenger passenger : e.getPassengers()) {
+                            int points = getPoints(passenger);
+
+                            //TODO koeff for moving downward
+
+                            boolean shouldInsert = true;
+                            for (Map.Entry<Passenger, Integer> passFloor : passFloors) {
+                                if (Objects.equals(passFloor.getKey().getDestFloor(), passenger.getDestFloor())) {
+                                    passFloor.setValue(passFloor.getValue() + points);
+                                    shouldInsert = false;
+                                }
+                            }
+
+                            if (shouldInsert) {
+                                passFloors.add(new AbstractMap.SimpleEntry<>(passenger, points));
+                            }
+                        }
+
+                        //TODO pick most points
+                        print("--- elevator " + e.getId() + " -- passFloors:  UNSORTED vvv");
+
+                        printPassFloors(passFloors);
+
+                        passFloors.sort(Comparator.comparing(Map.Entry::getValue));
+
+                        print("--- elevator " + e.getId() + " -- passFloors:  SORTED");
+                        printPassFloors(passFloors);
+
+                        print("--- elevator " + e.getId() + " -- passFloors:  END ^^^ ");
+
+                        buzyPass = passFloors.get(passFloors.size() - 1).getKey();
+
+                        if (!Objects.equals(buzyPass.getDestFloor(), nearPassenger.getDestFloor())) {
+                            print("Nearest and busiest floors not equal ! busy: " + buzyPass.getDestFloor() + " nearest:  " + nearPassenger.getDestFloor());
+                        }
+                        nearPassenger = buzyPass;
+                    }
                 }
 
                 Set<Integer> floorsWithP = new HashSet<>();
@@ -184,6 +225,16 @@ public class Strategy extends BaseStrategy {
                 }
             }
         }
+    }
+
+    private void printPassFloors(List<Map.Entry<Passenger, Integer>> passFloors) {
+        for (Map.Entry<Passenger, Integer> passFloor : passFloors) {
+            print("passFloor: " + passFloor.getKey().getDestFloor() + " points: " + passFloor.getValue());
+        }
+    }
+
+    private int getPoints(Passenger passenger) {
+        return myPassengers.contains(passenger) ? 1 : 2;
     }
 
     private Integer getNearestFloor(Elevator e, Set<Integer> floorsWithP) {
