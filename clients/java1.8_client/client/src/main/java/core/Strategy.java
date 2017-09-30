@@ -58,8 +58,7 @@ public class Strategy extends BaseStrategy {
             List<Elevator> candidates = new ArrayList<>();
             for (Elevator e : myElevators) {
                 if (e.getPassengers().size() < 20
-                        && Objects.equals(e.getFloor(), p.getFloor())
-                        ) {
+                        && Objects.equals(e.getFloor(), p.getFloor())) {
                     candidates.add(e);
                 }
             }
