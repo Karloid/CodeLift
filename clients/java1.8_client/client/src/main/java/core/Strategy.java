@@ -21,17 +21,25 @@ public class Strategy extends BaseStrategy {
     public static final int P_STATE_MOVING_TO_FLOOR = 4;
     public static final int P_STATE_USING_ELEVATOR = 5;
     public static final int P_STATE_EXITING = 6;
+    public static final int END = 7200;
     private List<Passenger> myPassengers;
     private List<Elevator> myElevators;
     private List<Passenger> enemyPassengers;
     private List<Elevator> enemyElevators;
     private List<Passenger> allPass;
     private int tick;
+    private int ticksToEnd;
+    private boolean noMorePickUps;
 
 
     public void onTick(List<Passenger> myPassengers, List<Elevator> myElevators, List<Passenger> enemyPassengers,
                        List<Elevator> enemyElevators) {
         tick++;
+        ticksToEnd = END - tick;
+
+        noMorePickUps = ticksToEnd < 700;
+
+
         if (tick == 1) {
             setDebug(new Debug());
         }
@@ -44,7 +52,7 @@ public class Strategy extends BaseStrategy {
 
 
         doMove();
-        if (tick == 7200) {
+        if (tick == END) {
             print("end");
         }
     }
@@ -72,35 +80,74 @@ public class Strategy extends BaseStrategy {
 
         for (Elevator e : myElevators) {
             if (elevatorMustGo(e)) {
-                Passenger min = null;
+                Passenger nearPassenger = null;
                 if (e.getPassengers() != null && !e.getPassengers().isEmpty()) {
-                    min = Collections.min(e.getPassengers(), Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
+                    nearPassenger = Collections.min(e.getPassengers(), Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
                 }
 
-                if (min != null) {
-                    goToFloor(e, min.getDestFloor());
-                } else {
-                    Integer floor = e.getFloor();
+                Set<Integer> floorsWithP = new HashSet<>();
+                for (Passenger p : allPass) {
+                    if (p.getState() == E_STATE_WAITING) {
+                        //TODO look at other elevators
+                        floorsWithP.add(p.getFloor());
+                    }
+                }
 
-                    Set<Integer> floorsWithMyP = new HashSet<>();
-                    for (Passenger myPassenger : allPass) {
-                        if (myPassenger.getState() == E_STATE_WAITING) {
-                            //TODO look at other elevators
-                            floorsWithMyP.add(myPassenger.getFloor());
-                        }
+                for (Elevator elevator : myElevators) {
+                    if (elevator.getNextFloor() != null) {
+                        floorsWithP.remove(elevator.getNextFloor());
+                    }
+                }
+
+                Integer eFloor = e.getFloor();
+
+
+                if (nearPassenger != null) {
+
+                    Integer pDestFloor = nearPassenger.getDestFloor();
+
+                    //TODO remove floors which not on the way
+                    if (pDestFloor > eFloor) {
+                        floorsWithP.removeIf(integer -> integer > pDestFloor || integer < eFloor);
+                    } else {
+                        floorsWithP.removeIf(integer -> integer > eFloor || integer < pDestFloor);
                     }
 
-                    if (!floorsWithMyP.isEmpty()) {
-                        Integer nearCrowdFloor = Collections.min(floorsWithMyP, Comparator.comparing(o -> Math.abs(o - floor)));
+                    Integer nearCrowdFloor = getNearestFloor(e, floorsWithP);
+
+                    if (!noMorePickUps && nearCrowdFloor != null && e.getPassengers().size() < 20
+                            && getDistance(nearCrowdFloor, e.getFloor()) < getDistance(pDestFloor, e.getFloor())) {
                         goToFloor(e, nearCrowdFloor);
-                    } else if (floor == 1) {
+                    } else {
+                        goToFloor(e, pDestFloor);
+                    }
+
+                } else {
+
+                    Integer nearCrowdFloor = getNearestFloor(e, floorsWithP);
+
+                    if (nearCrowdFloor != null) {
+                        goToFloor(e, nearCrowdFloor);
+                    } else if (eFloor == 1) {
                         goToFloor(e, 2);
                     } else {
-                        goToFloor(e, floor - 1);
+                        goToFloor(e, eFloor - 1);
                     }
                 }
             }
         }
+    }
+
+    private Integer getNearestFloor(Elevator e, Set<Integer> floorsWithP) {
+        Integer nearCrowdFloor = null;
+        if (!floorsWithP.isEmpty()) {
+            nearCrowdFloor = Collections.min(floorsWithP, Comparator.comparing(o -> Math.abs(o - e.getFloor())));
+        }
+        return nearCrowdFloor;
+    }
+
+    private int getDistance(Integer x, Integer y) {
+        return Math.abs(x - y);
     }
 
     private double getDistance(Passenger p, Elevator o) {
@@ -138,7 +185,7 @@ public class Strategy extends BaseStrategy {
             return true;
         }
 
-        if (nobodyOnFloor(e.getFloor())) {
+        if (!noMorePickUps && nobodyOnFloor(e.getFloor())) {
             return true;
         }
        /* if (e.getTimeOnFloor() > 200) {
