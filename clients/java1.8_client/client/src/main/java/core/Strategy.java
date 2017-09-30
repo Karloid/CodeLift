@@ -37,7 +37,7 @@ public class Strategy extends BaseStrategy {
         tick++;
         ticksToEnd = END - tick;
 
-        noMorePickUps = ticksToEnd < 700;
+        noMorePickUps = ticksToEnd < 650;
 
 
         if (tick == 1) {
@@ -50,10 +50,13 @@ public class Strategy extends BaseStrategy {
         this.enemyPassengers = enemyPassengers;
         this.enemyElevators = enemyElevators;
 
-
-        doMove();
-        if (tick == END) {
-            print("end");
+        try {
+            doMove();
+            if (tick == END) {
+                print("end");
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
         }
     }
 
@@ -79,10 +82,48 @@ public class Strategy extends BaseStrategy {
         }
 
         for (Elevator e : myElevators) {
+            Integer eFloor = e.getFloor();
+
             if (elevatorMustGo(e)) {
                 Passenger nearPassenger = null;
-                if (e.getPassengers() != null && !e.getPassengers().isEmpty()) {
-                    nearPassenger = Collections.min(e.getPassengers(), Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
+                List<Passenger> passengers = e.getPassengers();
+                if (passengers == null) {
+                    passengers = new ArrayList<>();
+                } else {
+                    passengers = new ArrayList<>(passengers);
+                }
+
+
+                int direction = 0;
+
+                for (Passenger passenger : passengers) {
+                    int points = myPassengers.contains(passenger) ? 1 : 2;
+                    Integer destFloor = passenger.getDestFloor();
+                    if (destFloor > eFloor) {
+                        direction += points;
+                    } else if (destFloor < eFloor) {
+                        direction -= points;
+                    } else {
+                        print(e.getId() + " strange passenger, same floor " + destFloor);
+                    }
+                }
+
+                if (direction == 0) {
+                    direction = -1;
+                }
+
+                int finalDirection = direction;
+                passengers.removeIf(passenger -> {
+                    if (finalDirection < 0) {
+                        return passenger.getDestFloor() > eFloor;
+                    } else {
+                        return passenger.getDestFloor() < eFloor;
+                    }
+                });
+
+
+                if (!passengers.isEmpty()) {
+                    nearPassenger = Collections.min(passengers, Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
                 }
 
                 Set<Integer> floorsWithP = new HashSet<>();
@@ -98,8 +139,6 @@ public class Strategy extends BaseStrategy {
                         floorsWithP.remove(elevator.getNextFloor());
                     }
                 }
-
-                Integer eFloor = e.getFloor();
 
 
                 if (nearPassenger != null) {
@@ -117,6 +156,7 @@ public class Strategy extends BaseStrategy {
 
                     if (!noMorePickUps && nearCrowdFloor != null && e.getPassengers().size() < 20
                             && getDistance(nearCrowdFloor, e.getFloor()) < getDistance(pDestFloor, e.getFloor())) {
+                        print(e.getId() + " going to intermediate floor " + nearCrowdFloor);
                         goToFloor(e, nearCrowdFloor);
                     } else {
                         goToFloor(e, pDestFloor);
