@@ -78,7 +78,27 @@ public class Strategy extends BaseStrategy {
                 List<Elevator> safeElev = getSafeElev(candidates, p);
                 Elevator result;
                 if (!safeElev.isEmpty()) {
-                    result = Collections.max(safeElev, Comparator.comparingDouble(o -> getDistance(p, o)));   //TODO group passengers
+                    Integer destFloor = p.getDestFloor();
+
+                    List<Map.Entry<Elevator, Integer>> elevatorWithFloor = new ArrayList<>();
+                    for (Elevator elevator : safeElev) {
+                        AbstractMap.SimpleEntry<Elevator, Integer> entry = new AbstractMap.SimpleEntry<>(elevator, 0);
+
+                        for (Passenger pass : allPass) {
+                            if (pass.getState() != P_STATE_EXITING && pass.getState() != P_STATE_EXITING
+                                    && pass.getState() != P_STATE_RETURNING && pass.getState() != P_STATE_MOVING_TO_FLOOR &&
+                                    Objects.equals(pass.getElevator(), elevator.getId()) && Objects.equals(pass.getDestFloor(), destFloor)) {
+                                entry.setValue(entry.getValue() + 1);
+                            }
+                        }
+
+                        elevatorWithFloor.add(entry);
+                    }
+
+
+                    result = Collections.max(elevatorWithFloor, Comparator.comparing(Map.Entry::getValue)).getKey();   //TODO group passengers
+
+
                 } else {
                     result = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
                 }
@@ -110,7 +130,7 @@ public class Strategy extends BaseStrategy {
                     if (destFloor > eFloor) {   //TODO uniform distribution across floors
                         direction += points;
                     } else if (destFloor < eFloor) {
-                        direction -= points * 1.2; // downward is preferable
+                        direction -= points * 1; // downward is preferable
                     } else {
                         print(e.getId() + " strange passenger, same floor " + destFloor);
                     }
@@ -331,7 +351,7 @@ public class Strategy extends BaseStrategy {
         for (Passenger pass : allPass) {
             if (Objects.equals(pass.getFloor(), e.getFloor()) && Objects.equals(pass.getFromFloor(), e.getFloor())
                     && (pass.getState() == P_STATE_WAITING_ELEVATOR ||/* pass.getState() == P_STATE_RETURNING ||*/
-                  //  (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && pass.getElevator().equals(e.getId()))
+                    //  (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && pass.getElevator().equals(e.getId()))
                     pass.getState() == P_STATE_RETURNING ||
                     (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && isMyElevator(pass.getElevator()))
             )) {
