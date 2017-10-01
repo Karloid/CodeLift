@@ -75,32 +75,49 @@ public class Strategy extends BaseStrategy {
             }
 
             if (!candidates.isEmpty()) {
-                List<Elevator> safeElev = getSafeElev(candidates, p);
                 Elevator result;
-                if (!safeElev.isEmpty()) {
-                    Integer destFloor = p.getDestFloor();
+                // different logic for first floor and game start
+                if (tick < 2300 && p.getFloor() == 1) {
+                    //trying to group passengers by floors
+                    candidates.sort(Comparator.comparing(Elevator::getId));
+                    int size = candidates.size();
+                    float scale = 9 / (size * 1.f);
 
-                    List<Map.Entry<Elevator, Integer>> elevatorWithFloor = new ArrayList<>();
-                    for (Elevator elevator : safeElev) {
-                        AbstractMap.SimpleEntry<Elevator, Integer> entry = new AbstractMap.SimpleEntry<>(elevator, 0);
+                    int v = size - 1 - Math.min((int) (p.getDestFloor() / scale), size - 1);
 
-                        for (Passenger pass : allPass) {
-                            if (pass.getState() != P_STATE_EXITING && pass.getState() != P_STATE_EXITING
-                                    && pass.getState() != P_STATE_RETURNING && pass.getState() != P_STATE_MOVING_TO_FLOOR &&
-                                    Objects.equals(pass.getElevator(), elevator.getId()) && Objects.equals(pass.getDestFloor(), destFloor)) {
-                                entry.setValue(entry.getValue() + 1);
-                            }
-                        }
-
-                        elevatorWithFloor.add(entry);
-                    }
-
-
-                    result = Collections.max(elevatorWithFloor, Comparator.comparing(Map.Entry::getValue)).getKey();   //TODO group passengers
+                    result = candidates.get(v);
 
 
                 } else {
-                    result = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+                    List<Elevator> safeElev = getSafeElev(candidates, p);
+
+                    if (!safeElev.isEmpty()) {
+                        Integer destFloor = p.getDestFloor();
+
+                        List<Map.Entry<Elevator, Integer>> elevatorWithFloor = new ArrayList<>();
+                        for (Elevator elevator : safeElev) {
+                            AbstractMap.SimpleEntry<Elevator, Integer> entry = new AbstractMap.SimpleEntry<>(elevator, 0);
+
+                            for (Passenger pass : allPass) {
+                                if (pass.getState() != P_STATE_EXITING
+                                        && pass.getState() != P_STATE_EXITING
+                                        && pass.getState() != P_STATE_RETURNING
+                                        && pass.getState() != P_STATE_MOVING_TO_FLOOR
+                                        && Objects.equals(pass.getElevator(), elevator.getId())
+                                        && Objects.equals(pass.getDestFloor(), destFloor)) {
+                                    entry.setValue(entry.getValue() + 1);
+                                }
+                            }
+
+                            elevatorWithFloor.add(entry);
+                        }
+
+
+                        result = Collections.max(elevatorWithFloor, Comparator.comparing(Map.Entry::getValue)).getKey();   //TODO group passengers
+                    } else {
+                        result = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+                    }
+
                 }
 
                 //TODO consider group passengers
