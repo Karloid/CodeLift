@@ -304,7 +304,7 @@ public class Strategy extends BaseStrategy {
         if (e.getState() == E_STATE_MOVING) {
             return false;
         }
-        if (e.getTimeOnFloor() < 40) {
+        if (e.getTimeOnFloor() < 100) {
             return false;
         }
 
@@ -317,7 +317,7 @@ public class Strategy extends BaseStrategy {
             return true;
         }
 
-        if (nobodyOnFloor(e.getFloor())) {
+        if (nobodyOnFloor(e)) {
 
             if (tick > 2000 || !e.getFloor().equals(1)) {
                 return true;
@@ -327,10 +327,12 @@ public class Strategy extends BaseStrategy {
         return false;
     }
 
-    private boolean nobodyOnFloor(Integer floor) {         //TODO detect only own passangers
+    private boolean nobodyOnFloor(Elevator e) {
         for (Passenger pass : allPass) {
-            if (Objects.equals(pass.getFloor(), floor) && Objects.equals(pass.getFromFloor(), floor)
-                    && (pass.getState() == P_STATE_WAITING_ELEVATOR ||
+            if (Objects.equals(pass.getFloor(), e.getFloor()) && Objects.equals(pass.getFromFloor(), e.getFloor())
+                    && (pass.getState() == P_STATE_WAITING_ELEVATOR ||/* pass.getState() == P_STATE_RETURNING ||*/
+                  //  (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && pass.getElevator().equals(e.getId()))
+                    pass.getState() == P_STATE_RETURNING ||
                     (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && isMyElevator(pass.getElevator()))
             )) {
                 return false;
