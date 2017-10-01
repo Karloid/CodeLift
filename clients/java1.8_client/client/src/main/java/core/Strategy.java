@@ -69,23 +69,22 @@ public class Strategy extends BaseStrategy {
 
             List<Elevator> candidates = new ArrayList<>();
             for (Elevator e : myElevators) {
-                if (e.getPassengers().size() < 20
-                        && Objects.equals(e.getFloor(), p.getFloor())) {
+                if (notFullOnFloor(e, p.getFloor())) {
                     candidates.add(e);
                 }
             }
 
             if (!candidates.isEmpty()) {
-                Elevator min;
-                min = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
-              /*  if (tick > 40) {  //TODO detect distance to enemy elevators and send passengers to most far my elevator
-                    min = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+                List<Elevator> safeElev = getSafeElev(candidates, p);
+                Elevator result;
+                if (!safeElev.isEmpty()) {
+                    result = Collections.max(safeElev, Comparator.comparingDouble(o -> getDistance(p, o)));   //TODO group passengers
                 } else {
-                    min = Collections.max(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
-                }*/
+                    result = Collections.min(candidates, Comparator.comparingDouble(o -> getDistance(p, o)));
+                }
 
                 //TODO consider group passengers
-                setElevatorToPass(p, min);
+                setElevatorToPass(p, result);
 
             }
         }
@@ -232,6 +231,24 @@ public class Strategy extends BaseStrategy {
         }
     }
 
+    private boolean notFullOnFloor(Elevator e, Integer floor) {
+        return e.getPassengers().size() < 20
+                && Objects.equals(e.getFloor(), floor);
+    }
+
+    private List<Elevator> getSafeElev(List<Elevator> candidates, Passenger p) {
+        boolean isEnemyP = enemyPassengers.contains(p);
+        ArrayList<Elevator> best = new ArrayList<>(candidates);
+        for (Elevator enemyElevator : enemyElevators) {
+            boolean isCanCall = isEnemyP || enemyElevator.getTimeOnFloor() > 140 || (tick < 2000 && p.getFloor() == 1);
+            if (isCanCall && notFullOnFloor(enemyElevator, p.getFloor())) {
+                best.removeIf(elevator -> getDistance(p, elevator) > getDistance(p, enemyElevator));
+            }
+        }
+
+        return best;
+    }
+
     private void printPassFloors(List<Map.Entry<Passenger, Integer>> passFloors) {
         for (Map.Entry<Passenger, Integer> passFloor : passFloors) {
             print("passFloor: " + passFloor.getKey().getDestFloor() + " points: " + passFloor.getValue());
@@ -310,7 +327,7 @@ public class Strategy extends BaseStrategy {
         return false;
     }
 
-    private boolean nobodyOnFloor(Integer floor) {
+    private boolean nobodyOnFloor(Integer floor) {         //TODO detect only own passangers
         for (Passenger pass : allPass) {
             if (Objects.equals(pass.getFloor(), floor) && Objects.equals(pass.getFromFloor(), floor)
                     && (pass.getState() == P_STATE_WAITING_ELEVATOR ||
