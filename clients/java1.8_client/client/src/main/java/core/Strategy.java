@@ -107,10 +107,10 @@ public class Strategy extends BaseStrategy {
                 for (Passenger passenger : passengers) {
                     int points = getPoints(passenger);
                     Integer destFloor = passenger.getDestFloor();
-                    if (destFloor > eFloor) {
+                    if (destFloor > eFloor) {   //TODO uniform distribution across floors
                         direction += points;
                     } else if (destFloor < eFloor) {
-                        direction -= points * 1.3; // downward is preferable
+                        direction -= points * 1.2; // downward is preferable
                     } else {
                         print(e.getId() + " strange passenger, same floor " + destFloor);
                     }
@@ -179,6 +179,7 @@ public class Strategy extends BaseStrategy {
                 for (Passenger p : allPass) {
                     if (p.getState() == E_STATE_WAITING) {
                         //TODO look at other elevators
+                        //TODO respect potential points
                         floorsWithP.add(p.getFloor());
                     }
                 }
@@ -186,6 +187,9 @@ public class Strategy extends BaseStrategy {
                 for (Elevator elevator : myElevators) {
                     if (elevator.getNextFloor() != null) {
                         floorsWithP.remove(elevator.getNextFloor());
+                        if (elevator.getState() != E_STATE_MOVING && elevator.getState() != E_STATE_CLOSING) {
+                            floorsWithP.remove(elevator.getFloor());
+                        }
                     }
                 }
 
