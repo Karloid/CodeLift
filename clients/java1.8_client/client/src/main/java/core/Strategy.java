@@ -288,11 +288,12 @@ public class Strategy extends BaseStrategy {
             return false;
         }
 
-        if (noMorePickUps) {
+        int passengersCount = e.getPassengers().size();
+        if (noMorePickUps && passengersCount > 0) {
             return true;
         }
 
-        if (e.getPassengers().size() == 20) {
+        if (passengersCount == 20) {
             return true;
         }
 
@@ -302,9 +303,6 @@ public class Strategy extends BaseStrategy {
                 return true;
             }
         }
-       /* if (e.getTimeOnFloor() > 200) {
-            return true;
-        }*/
 
         return false;
     }
