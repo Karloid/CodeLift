@@ -3,14 +3,21 @@
  */
 
 import core.Client;
+import core.Strategy;
 import org.json.simple.parser.ParseException;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.Arrays;
 
 public class Main {
-    public static void main(String args[]) throws IOException, ParseException {
-        runServer();
-        runPythonBaseline();
+    public static void main(String args[]) throws IOException, ParseException, InterruptedException {
+        if (args.length > 0) {
+            runServer();
+            Strategy.printEnabled = true;
+        }
 
         String host = System.getenv("WORLD_NAME");
         if (host == null) {
@@ -25,20 +32,48 @@ public class Main {
         client.connect();
     }
 
-    private static void runServer() {
+    private static void runServer() throws InterruptedException {
         //TODO
         runProc("python", "localrunner/world/run.py");
-        runProc("python", "clients/python2_client/client/run.py");
+        Thread.sleep(1000);
+        //runProc("python", "clients/python2_client/client/run.py");
+        runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_3859.jar");
+        Thread.sleep(1000);
     }
 
     private static void runProc(String... runProc) {
-        try {
-            Process process = new ProcessBuilder(runProc).start();
-            System.out.println("started process: " + runProc.toString());
-            Thread.sleep(1000);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        new Thread(() -> {
+            try {
+                Process process = new ProcessBuilder(runProc).start();
+                System.out.println("started process: " + Arrays.toString(runProc));
+
+                InputStream inputStream = process.getInputStream();
+
+
+                readStream(process.getErrorStream(), runProc[0]);
+                readStream(inputStream, runProc[0]);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        }).start();
+
+    }
+
+    private static void readStream(InputStream inputStream, String s) throws IOException {
+        new Thread(() -> {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            String line;
+            try {
+                while ((line = reader.readLine()) != null) {
+                    System.out.println(s + ": " + line);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
     }
 
     private static void runPythonBaseline() {

@@ -22,6 +22,7 @@ public class Strategy extends BaseStrategy {
     public static final int P_STATE_USING_ELEVATOR = 5;
     public static final int P_STATE_EXITING = 6;
     public static final int END = 7200;
+    public static boolean printEnabled = false;
     private List<Passenger> myPassengers;
     private List<Elevator> myElevators;
     private List<Passenger> enemyPassengers;
@@ -275,8 +276,10 @@ public class Strategy extends BaseStrategy {
     }
 
     private void print(String msg) {
-        System.out.println(tick + ": " + msg);
-        log(msg);
+        if (printEnabled) {
+            System.out.println(tick + ": " + msg);
+            log(msg);
+        }
     }
 
     private boolean elevatorMustGo(Elevator e) {
