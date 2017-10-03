@@ -169,7 +169,10 @@ public class Strategy extends BaseStrategy {
 
         potentialFloorsByTotalPoints = new ArrayList<>(floorPotential.values());
 
-        potentialFloorsByTotalPoints.sort(Comparator.comparing(fp -> fp.pointsTotal, Collections.reverseOrder()));
+        potentialFloorsByTotalPoints.sort(Comparator.comparing(fp -> {
+            return fp.pointsTotal;
+            //return Collections.max(fp.destPotential.values()); //results is equal to 3904
+        }, Collections.reverseOrder()));
         print("By pointsTotal");
         printPotentials(potentialFloorsByTotalPoints);
 
