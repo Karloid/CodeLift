@@ -22,6 +22,7 @@ public class Strategy extends BaseStrategy {
     public static final int P_STATE_USING_ELEVATOR = 5;
     public static final int P_STATE_EXITING = 6;
     public static final int END = 7200;
+    public static final int MIN_POINTS = 50;
     public static boolean printEnabled = false;
     private List<Passenger> myPassengers;
     private List<Elevator> myElevators;
@@ -31,6 +32,8 @@ public class Strategy extends BaseStrategy {
     private int tick;
     private int ticksToEnd;
     private boolean noMorePickUps;
+    private Map<Integer, FloorPotential> floorPotential;
+    private ArrayList<FloorPotential> potentialFloorsByTotalPoints;
 
 
     public void onTick(List<Passenger> myPassengers, List<Elevator> myElevators, List<Passenger> enemyPassengers,
@@ -62,15 +65,23 @@ public class Strategy extends BaseStrategy {
     }
 
     private void doMove() {
+        calcFloorPotential();
+
+
         for (Passenger p : allPass) {
-            if (p.getState() >= P_STATE_USING_ELEVATOR) {
+            if (p.getState() >= P_STATE_MOVING_TO_FLOOR) {
                 continue;
             }
+
+            boolean isPoorPass = getPoints(p) <= MIN_POINTS;
+
 
             List<Elevator> candidates = new ArrayList<>();
             for (Elevator e : myElevators) {
                 if (notFullOnFloor(e, p.getFloor())) {
-                    candidates.add(e);
+                    if (!isPoorPass || elevatorHasPassengersWithFloor(e, p.getDestFloor())) {
+                        candidates.add(e);
+                    }
                 }
             }
 
@@ -132,6 +143,54 @@ public class Strategy extends BaseStrategy {
         }
     }
 
+    private boolean elevatorHasPassengersWithFloor(Elevator e, Integer destFloor) {
+        for (Passenger passenger : e.getPassengers()) {
+            if (passenger.getDestFloor().equals(destFloor)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void calcFloorPotential() {
+        floorPotential = new HashMap<>();
+        for (int i = 1; i <= 9; i++) {
+            floorPotential.put(i, new FloorPotential(i));
+        }
+
+        for (Passenger p : allPass) {
+            if (p.getState() >= P_STATE_MOVING_TO_FLOOR) {
+                continue;
+            }
+
+            floorPotential.get(p.getFloor()).addP(p);
+        }
+
+
+        potentialFloorsByTotalPoints = new ArrayList<>(floorPotential.values());
+
+        potentialFloorsByTotalPoints.sort(Comparator.comparing(fp -> fp.pointsTotal, Collections.reverseOrder()));
+        print("By pointsTotal");
+        printPotentials(potentialFloorsByTotalPoints);
+
+         /*
+        asList.sort(Comparator.comparing(fp -> fp.pointsDown, Collections.reverseOrder()));
+        print("By pointsDown");
+        printPotentials(asList);
+        asList.sort(Comparator.comparing(fp -> fp.pointsUp, Collections.reverseOrder()));
+        print("By pointsUp");
+        printPotentials(asList);*/
+    }
+
+    private void printPotentials(ArrayList<FloorPotential> asList) {
+        print("---vvv---");
+        for (FloorPotential potential : asList) {
+            print(potential.toString());
+        }
+        print("---^^^---");
+        print("");
+    }
+
     private void moveElevator(Elevator e) {
         if (elevatorMustGo(e)) {
             Integer eFloor = e.getFloor();
@@ -175,46 +234,46 @@ public class Strategy extends BaseStrategy {
             if (!passengers.isEmpty()) {
                 nearPassenger = Collections.min(passengers, Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
                 Passenger buzyPass = null;
-                if (noMorePickUps) { //looking for most profit floor
-                    List<Map.Entry<Passenger, Integer>> passFloors = new ArrayList<>();
+                //  if (noMorePickUps) { //looking for most profit floor
+                List<Map.Entry<Passenger, Integer>> passFloors = new ArrayList<>();
 
-                    for (Passenger passenger : e.getPassengers()) {
-                        int points = getPoints(passenger);
+                for (Passenger passenger : e.getPassengers()) {
+                    int points = getPoints(passenger);
 
-                        //TODO koeff for moving downward
+                    //TODO koeff for moving downward
 
-                        boolean shouldInsert = true;
-                        for (Map.Entry<Passenger, Integer> passFloor : passFloors) {
-                            if (Objects.equals(passFloor.getKey().getDestFloor(), passenger.getDestFloor())) {
-                                passFloor.setValue(passFloor.getValue() + points);
-                                shouldInsert = false;
-                            }
-                        }
-
-                        if (shouldInsert) {
-                            passFloors.add(new AbstractMap.SimpleEntry<>(passenger, points));
+                    boolean shouldInsert = true;
+                    for (Map.Entry<Passenger, Integer> passFloor : passFloors) {
+                        if (Objects.equals(passFloor.getKey().getDestFloor(), passenger.getDestFloor())) {
+                            passFloor.setValue(passFloor.getValue() + points);
+                            shouldInsert = false;
                         }
                     }
 
-                    //TODO pick most points
-                    print("--- elevator " + e.getId() + " -- passFloors:  UNSORTED vvv");
-
-                    printPassFloors(passFloors);
-
-                    passFloors.sort(Comparator.comparing(Map.Entry::getValue));
-
-                    print("--- elevator " + e.getId() + " -- passFloors:  SORTED");
-                    printPassFloors(passFloors);
-
-                    print("--- elevator " + e.getId() + " -- passFloors:  END ^^^ ");
-
-                    buzyPass = passFloors.get(passFloors.size() - 1).getKey();
-
-                    if (!Objects.equals(buzyPass.getDestFloor(), nearPassenger.getDestFloor())) {
-                        print("Nearest and busiest floors not equal ! busy: " + buzyPass.getDestFloor() + " nearest:  " + nearPassenger.getDestFloor());
+                    if (shouldInsert) {
+                        passFloors.add(new AbstractMap.SimpleEntry<>(passenger, points));
                     }
-                    nearPassenger = buzyPass;
                 }
+
+                //TODO pick most points
+                //  print("--- elevator " + e.getId() + " -- passFloors:  UNSORTED vvv");
+
+                printPassFloors(passFloors);
+
+                passFloors.sort(Comparator.comparing(Map.Entry::getValue));
+
+                //   print("--- elevator " + e.getId() + " -- passFloors:  SORTED");
+                printPassFloors(passFloors);
+
+                //     print("--- elevator " + e.getId() + " -- passFloors:  END ^^^ ");
+
+                buzyPass = passFloors.get(passFloors.size() - 1).getKey();
+
+                if (!Objects.equals(buzyPass.getDestFloor(), nearPassenger.getDestFloor())) {
+                    print("Nearest and busiest floors not equal ! busy: " + buzyPass.getDestFloor() + " nearest:  " + nearPassenger.getDestFloor());
+                }
+                nearPassenger = buzyPass;
+                //      }
             }
 
             Set<Integer> floorsWithP = new HashSet<>();
@@ -239,8 +298,8 @@ public class Strategy extends BaseStrategy {
             if (nearPassenger != null) {
 
                 Integer pDestFloor = nearPassenger.getDestFloor();
+                //TODO remove floors if they didn't have passengers for way
 
-                //TODO remove floors which not on the way
                 if (pDestFloor > eFloor) {
                     floorsWithP.removeIf(integer -> integer > pDestFloor || integer < eFloor);
                 } else {
@@ -249,7 +308,7 @@ public class Strategy extends BaseStrategy {
 
                 Integer nearCrowdFloor = getNearestFloor(e, floorsWithP);
 
-                if (!noMorePickUps && nearCrowdFloor != null && e.getPassengers().size() < 20
+                if (!noMorePickUps && nearCrowdFloor != null && e.getPassengers().size() < 20   //TODO remove this condition
                         && getDistance(nearCrowdFloor, e.getFloor()) < getDistance(pDestFloor, e.getFloor())) {
                     print(e.getId() + " going to intermediate floor " + nearCrowdFloor);
                     goToFloor(e, nearCrowdFloor);
@@ -259,10 +318,16 @@ public class Strategy extends BaseStrategy {
 
             } else {
 
-                Integer nearCrowdFloor = getNearestFloor(e, floorsWithP);
+                Integer targetFloor = null;
+                for (FloorPotential fp : potentialFloorsByTotalPoints) {
+                    if (floorsWithP.contains(fp.floor)) {
+                        targetFloor = fp.floor;
+                        break;
+                    }
+                }
 
-                if (nearCrowdFloor != null) {
-                    goToFloor(e, nearCrowdFloor);
+                if (targetFloor != null) {
+                    goToFloor(e, targetFloor);
                 } else if (eFloor == 1) {
                     goToFloor(e, 2);
                 } else {
@@ -416,4 +481,42 @@ public class Strategy extends BaseStrategy {
         return 0;
     }
 
+    private class FloorPotential {
+        private int floor;
+        private int pointsTotal;
+        private int pointsUp;
+        private int pointsDown;
+        private HashMap<Integer, Integer> destPotential;
+
+        public FloorPotential(int floor) {
+
+            this.floor = floor;
+            destPotential = new HashMap<>();
+            for (int i = 1; i <= 9; i++) {
+                destPotential.put(i, 0);
+            }
+        }
+
+        public void addP(Passenger p) {
+            int points = getPoints(p);
+
+            pointsTotal = pointsTotal + points;
+            pointsUp += p.getDestFloor() > floor ? points : 0;
+            pointsDown += p.getDestFloor() < floor ? points : 0;
+
+            destPotential.put(p.getDestFloor(), destPotential.get(p.getDestFloor()) + points);
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder sb = new StringBuilder("FloorPotential{");
+            sb.append("floor=").append(floor);
+            sb.append(", pointsTotal=").append(pointsTotal);
+            sb.append(", pointsUp=").append(pointsUp);
+            sb.append(", pointsDown=").append(pointsDown);
+            sb.append(", destPotential=").append(destPotential);
+            sb.append('}');
+            return sb.toString();
+        }
+    }
 }
