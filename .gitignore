@@ -20,3 +20,6 @@ clients/python2_client/client/core/strategy.py
 localrunner/visualizer/game.js
 clients/java1.8_client/.idea/modules/java1.8_client.iml
 clients/java1.8_client/client/build.gradle
+/clients/java1.8_client/client/java1.8_client_3904.jar
+/clients/java1.8_client/client/JavaClient.iml
+/clients/java1.8_client/client/java1.8_client_3859.jar
