@@ -365,7 +365,11 @@ public class Strategy extends BaseStrategy {
         Double speed = p.getY() > e.getY() ? e.getSpeed() : SPEED_DOWNWARD;
         double ticksToCome = Math.abs(p.getY() - e.getY()) / speed;
 
-        return p.getTimeToAway() > ticksToCome;
+        return p.getTimeToAway() > ticksToCome + (isMyPass(p) ? 0 : 140);
+    }
+
+    private boolean isMyPass(Passenger p) {
+        return myPassengers.contains(p);
     }
 
     private boolean notFullOnFloor(Elevator e, Integer floor) {
