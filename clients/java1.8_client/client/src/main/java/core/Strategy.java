@@ -35,6 +35,8 @@ public class Strategy extends BaseStrategy {
     private int ticksToEnd;
     private boolean noMorePickUps;
 
+    private Map<Integer, Map<Integer, FuturePass>> futurePasses = new HashMap<>(); //floor -> (passId -> info)
+
     private long totalMs;
 
 
@@ -72,7 +74,11 @@ public class Strategy extends BaseStrategy {
 
     private void doMove() {
 
+        handleFuturePasses();
+
+
         for (Passenger p : allPass) {
+
             if (p.getState() >= P_STATE_MOVING_TO_FLOOR) {
                 continue;
             }
@@ -147,6 +153,48 @@ public class Strategy extends BaseStrategy {
         }
     }
 
+    private void handleFuturePasses() {
+        if (tick == 1) {
+            for (int i = 1; i <= 9; i++) {
+                futurePasses.put(i, new HashMap<>());
+            }
+        }
+
+        for (Passenger p : allPass) {
+            if (p.getState() == P_STATE_EXITING) {
+                boolean isMy = isMyElevator(p.getElevator());
+                futurePasses.get(p.getFloor()).put(p.getId(), new FuturePass(p, tick + 500 + 2, isMy));
+            }
+        }
+
+        for (Map.Entry<Integer, Map<Integer, FuturePass>> floorEntry : futurePasses.entrySet()) {
+            Integer floor = floorEntry.getKey();
+            print("Future passes floor: " + floor);
+            Map<Integer, FuturePass> idToPass = floorEntry.getValue();
+
+            List<Integer> toRemove = new ArrayList<>(0);
+            for (Map.Entry<Integer, FuturePass> passEntry : idToPass.entrySet()) {
+                FuturePass futurePass = passEntry.getValue();
+                Integer passId = futurePass.pass.getId();
+                print("  passId: " + passId + " -- will come at " + futurePass.willAppearAt + " is my: " + futurePass.isMy);
+
+                //noinspection ForLoopReplaceableByForEach
+                for (int i = 0; i < allPass.size(); i++) {
+                    Passenger ppp = allPass.get(i);
+                    if (ppp.getState() != P_STATE_EXITING && ppp.getId().equals(passId)) {
+                        print("pass with id " + passId + " appear on floor " + floor + " will be removed from future passes");
+                        toRemove.add(passId);
+                    }
+                }
+            }
+
+            for (Integer id : toRemove) {
+                idToPass.remove(id);
+            }
+
+        }
+    }
+
     private boolean isPoorPass(Passenger p) {
         return getPoints(p) <= MIN_POINTS;
     }
@@ -190,7 +238,7 @@ public class Strategy extends BaseStrategy {
             if (compare == 0) {
                 compare = Integer.compare(Math.abs(o1.floor - e.getFloor()), Math.abs(o2.floor - e.getFloor()));
                 if (compare == 0) {
-                   compare = Integer.compare(o1.floor, o2.floor);
+                    compare = Integer.compare(o1.floor, o2.floor);
                 }
             }
             return compare;
@@ -556,6 +604,18 @@ public class Strategy extends BaseStrategy {
             sb.append(", destPotential=").append(destPotential);
             sb.append('}');
             return sb.toString();
+        }
+    }
+
+    private static class FuturePass {
+        public Passenger pass;
+        public int willAppearAt;
+        private final boolean isMy;
+
+        public FuturePass(Passenger pass, int willAppearAt, boolean isMy) {
+            this.pass = pass;
+            this.willAppearAt = willAppearAt;
+            this.isMy = isMy;
         }
     }
 }
