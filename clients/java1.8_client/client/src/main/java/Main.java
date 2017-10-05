@@ -40,7 +40,8 @@ public class Main {
         //runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_3859.jar");
         //runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_3904.jar");
         //runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_4556.jar");
-        runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_4576.jar");
+        //runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_4576.jar");
+        runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client4576_pass_will_stay_predict.jar");
         Thread.sleep(1000);
     }
 

@@ -8,6 +8,8 @@ import java.util.*;
 
 public class Strategy extends BaseStrategy {
 
+    private static final boolean FUTURE_ENABLED = false; // with this feature strategy performs worse
+
     public static final float SPEED_DOWNWARD = 1 / 50f;
 
     public static final int E_STATE_WAITING = 0;
@@ -230,6 +232,21 @@ public class Strategy extends BaseStrategy {
             floorPotential.get(p.getFloor()).addP(p);
         }
 
+        if (FUTURE_ENABLED) {
+            for (Map.Entry<Integer, Map<Integer, FuturePass>> floorToPasses : futurePasses.entrySet()) {
+                Integer floor = floorToPasses.getKey();
+                int timeToTravel = getTimeToFloor(e, floor);
+
+                Set<Map.Entry<Integer, FuturePass>> floorToPassesEntrySet = floorToPasses.getValue().entrySet();
+                for (Map.Entry<Integer, FuturePass> idToFuturePass : floorToPassesEntrySet) {
+                    FuturePass futurePass = idToFuturePass.getValue();
+                    if (futurePass.willAppearAt <= tick + timeToTravel - 100) {
+                        floorPotential.get(floor).addFuturePass(futurePass);
+                    }
+                }
+            }
+        }
+
 
         ArrayList<FloorPotential> potentialFloorsByTotalPoints = new ArrayList<>(floorPotential.values());
 
@@ -361,6 +378,27 @@ public class Strategy extends BaseStrategy {
             }
         }
 
+        if (FUTURE_ENABLED) {
+            for (Map.Entry<Integer, Map<Integer, FuturePass>> floorToPasses : futurePasses.entrySet()) {
+                Integer floor = floorToPasses.getKey();
+                if (Objects.equals(floor, e.getFloor())) {
+                    continue;
+                }
+                int timeToTravel = getTimeToFloor(e, floor);
+
+                Set<Map.Entry<Integer, FuturePass>> floorToPassesEntrySet = floorToPasses.getValue().entrySet();
+                for (Map.Entry<Integer, FuturePass> idToFuturePass : floorToPassesEntrySet) {
+                    if (idToFuturePass.getValue().willAppearAt <= tick + timeToTravel - 100) {
+                        boolean add = floorsWithP.add(floor);
+                        if (add) {
+                            print("Added floor " + floor + " with has only future passes with time to travel " + timeToTravel);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         for (Elevator elevator : myElevators) {
             if (elevator.getNextFloor() != null) {
                 floorsWithP.remove(elevator.getNextFloor());
@@ -385,7 +423,7 @@ public class Strategy extends BaseStrategy {
             Integer nearCrowdFloor = getNearestFloor(e, floorsWithP);
 
             if (!noMorePickUps && nearCrowdFloor != null && e.getPassengers().size() < 20   //TODO remove this condition
-                    && getDistance(nearCrowdFloor, e.getFloor()) < getDistance(pDestFloor, e.getFloor())) {
+                    && getDistance(nearCrowdFloor, e.getFloor()) < getDistance(pDestFloor, e.getFloor())) {   //TODO use time to travel?
                 print(e.getId() + " going to intermediate floor " + nearCrowdFloor);
                 goToFloor(e, nearCrowdFloor);
             } else {
@@ -413,11 +451,19 @@ public class Strategy extends BaseStrategy {
         }
     }
 
+    private int getTimeToFloor(Elevator e, Integer floor) {
+        return (int) getTimeToY(e, (double) floor);
+    }
+
     private boolean passWillStayUntilElevatorCome(Passenger p, Elevator e) {
-        Double speed = p.getY() > e.getY() ? e.getSpeed() : SPEED_DOWNWARD;
-        double ticksToCome = Math.abs(p.getY() - e.getY()) / speed;
+        double ticksToCome = getTimeToY(e, p.getY());
 
         return p.getTimeToAway() > ticksToCome + (isMyPass(p) ? 0 : 140);
+    }
+
+    private double getTimeToY(Elevator e, Double destY) {
+        Double speed = destY > e.getY() ? e.getSpeed() : SPEED_DOWNWARD;
+        return Math.abs(destY - e.getY()) / speed;
     }
 
     private boolean isMyPass(Passenger p) {
@@ -604,6 +650,22 @@ public class Strategy extends BaseStrategy {
             sb.append(", destPotential=").append(destPotential);
             sb.append('}');
             return sb.toString();
+        }
+
+        public void addFuturePass(FuturePass futurePass) {
+            float scale = futurePass.isMy ? 12 : 6;
+            for (int destFloor = 1; destFloor <= 9; destFloor++) {
+                if (floor == destFloor) {
+                    continue;
+                }
+                int points = Math.round((Math.abs(destFloor - floor) * 10) / scale);
+
+                pointsTotal = pointsTotal + points;
+                pointsUp += destFloor > floor ? points : 0;
+                pointsDown += destFloor < floor ? points : 0;
+
+                destPotential.put(destFloor, destPotential.get(destFloor) + points);
+            }
         }
     }
 
