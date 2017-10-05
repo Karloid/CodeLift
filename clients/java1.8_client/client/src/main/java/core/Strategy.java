@@ -35,9 +35,12 @@ public class Strategy extends BaseStrategy {
     private Map<Integer, FloorPotential> floorPotential;
     private ArrayList<FloorPotential> potentialFloorsByTotalPoints;
 
+    private long totalMs;
+
 
     public void onTick(List<Passenger> myPassengers, List<Elevator> myElevators, List<Passenger> enemyPassengers,
                        List<Elevator> enemyElevators) {
+        long start = System.currentTimeMillis();
         tick++;
         ticksToEnd = END - tick;
 
@@ -56,11 +59,14 @@ public class Strategy extends BaseStrategy {
 
         try {
             doMove();
-            if (tick == END) {
-                print("end");
-            }
         } catch (Throwable e) {
             e.printStackTrace();
+        }
+
+        totalMs += System.currentTimeMillis() - start;
+
+        if (tick == END) {
+            print("end, timeElapsed " + totalMs + " mean time per tick " + (totalMs / 7200f));
         }
     }
 
@@ -73,13 +79,13 @@ public class Strategy extends BaseStrategy {
                 continue;
             }
 
-            boolean isPoorPass = getPoints(p) <= MIN_POINTS;
+            boolean isPoorPass = isPoorPass(p);
 
 
             List<Elevator> candidates = new ArrayList<>();
             for (Elevator e : myElevators) {
                 if (notFullOnFloor(e, p.getFloor())) {
-                    if (!isPoorPass || elevatorHasPassengersWithFloor(e, p.getDestFloor())) {
+                    if (elevatorCanPickUp(p, isPoorPass, e)) {
                         candidates.add(e);
                     }
                 }
@@ -143,6 +149,18 @@ public class Strategy extends BaseStrategy {
         }
     }
 
+    private boolean isPoorPass(Passenger p) {
+        return getPoints(p) <= MIN_POINTS;
+    }
+
+    private boolean elevatorCanPickUp(Passenger p, Elevator e) {
+        return elevatorCanPickUp(p, isPoorPass(p), e);
+    }
+
+    private boolean elevatorCanPickUp(Passenger p, boolean isPoorPass, Elevator e) {
+        return !isPoorPass || elevatorHasPassengersWithFloor(e, p.getDestFloor());
+    }
+
     private boolean elevatorHasPassengersWithFloor(Elevator e, Integer destFloor) {
         for (Passenger passenger : e.getPassengers()) {
             if (passenger.getDestFloor().equals(destFloor)) {
@@ -195,147 +213,148 @@ public class Strategy extends BaseStrategy {
     }
 
     private void moveElevator(Elevator e) {
-        if (elevatorMustGo(e)) {
-            Integer eFloor = e.getFloor();
-            Passenger nearPassenger = null;
-            List<Passenger> passengers = e.getPassengers();
-            if (passengers == null) {
-                passengers = new ArrayList<>();
+        if (!elevatorMustGo(e)) {
+            return;
+        }
+
+        Integer eFloor = e.getFloor();
+        Passenger nearPassenger = null;
+        List<Passenger> passengers = e.getPassengers();
+        if (passengers == null) {
+            passengers = new ArrayList<>();
+        } else {
+            passengers = new ArrayList<>(passengers);
+        }
+
+
+        int direction = 0;
+
+        for (Passenger passenger : passengers) {
+            int points = getPoints(passenger);
+            Integer destFloor = passenger.getDestFloor();
+            if (destFloor > eFloor) {   //TODO uniform distribution across floors
+                direction += points;
+            } else if (destFloor < eFloor) {
+                direction -= points * 1; // downward is preferable
             } else {
-                passengers = new ArrayList<>(passengers);
+                print(e.getId() + " strange passenger, same floor " + destFloor);
             }
+        }
+
+        if (direction == 0) {
+            direction = -1;
+        }
+
+        int finalDirection = direction;
+        passengers.removeIf(passenger -> {
+            if (finalDirection < 0) {
+                return passenger.getDestFloor() > eFloor;
+            } else {
+                return passenger.getDestFloor() < eFloor;
+            }
+        });
 
 
-            int direction = 0;
+        if (!passengers.isEmpty()) {
+            nearPassenger = Collections.min(passengers, Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
+            Passenger buzyPass = null;
+            //  if (noMorePickUps) { //looking for most profit floor
+            List<Map.Entry<Passenger, Integer>> passFloors = new ArrayList<>();
 
-            for (Passenger passenger : passengers) {
+            for (Passenger passenger : e.getPassengers()) {
                 int points = getPoints(passenger);
-                Integer destFloor = passenger.getDestFloor();
-                if (destFloor > eFloor) {   //TODO uniform distribution across floors
-                    direction += points;
-                } else if (destFloor < eFloor) {
-                    direction -= points * 1; // downward is preferable
-                } else {
-                    print(e.getId() + " strange passenger, same floor " + destFloor);
-                }
-            }
 
-            if (direction == 0) {
-                direction = -1;
-            }
+                //TODO koeff for moving downward
 
-            int finalDirection = direction;
-            passengers.removeIf(passenger -> {
-                if (finalDirection < 0) {
-                    return passenger.getDestFloor() > eFloor;
-                } else {
-                    return passenger.getDestFloor() < eFloor;
-                }
-            });
-
-
-            if (!passengers.isEmpty()) {
-                nearPassenger = Collections.min(passengers, Comparator.comparing(o -> Math.abs(o.getDestFloor() - e.getFloor())));
-                Passenger buzyPass = null;
-                //  if (noMorePickUps) { //looking for most profit floor
-                List<Map.Entry<Passenger, Integer>> passFloors = new ArrayList<>();
-
-                for (Passenger passenger : e.getPassengers()) {
-                    int points = getPoints(passenger);
-
-                    //TODO koeff for moving downward
-
-                    boolean shouldInsert = true;
-                    for (Map.Entry<Passenger, Integer> passFloor : passFloors) {
-                        if (Objects.equals(passFloor.getKey().getDestFloor(), passenger.getDestFloor())) {
-                            passFloor.setValue(passFloor.getValue() + points);
-                            shouldInsert = false;
-                        }
-                    }
-
-                    if (shouldInsert) {
-                        passFloors.add(new AbstractMap.SimpleEntry<>(passenger, points));
+                boolean shouldInsert = true;
+                for (Map.Entry<Passenger, Integer> passFloor : passFloors) {
+                    if (Objects.equals(passFloor.getKey().getDestFloor(), passenger.getDestFloor())) {
+                        passFloor.setValue(passFloor.getValue() + points);
+                        shouldInsert = false;
                     }
                 }
 
-                //TODO pick most points
-                //  print("--- elevator " + e.getId() + " -- passFloors:  UNSORTED vvv");
-
-                printPassFloors(passFloors);
-
-                passFloors.sort(Comparator.comparing(Map.Entry::getValue));
-
-                //   print("--- elevator " + e.getId() + " -- passFloors:  SORTED");
-                printPassFloors(passFloors);
-
-                //     print("--- elevator " + e.getId() + " -- passFloors:  END ^^^ ");
-
-                buzyPass = passFloors.get(passFloors.size() - 1).getKey();
-
-                if (!Objects.equals(buzyPass.getDestFloor(), nearPassenger.getDestFloor())) {
-                    print("Nearest and busiest floors not equal ! busy: " + buzyPass.getDestFloor() + " nearest:  " + nearPassenger.getDestFloor());
-                }
-                nearPassenger = buzyPass;
-                //      }
-            }
-
-            Set<Integer> floorsWithP = new HashSet<>();
-            for (Passenger p : allPass) {
-                if (p.getState() == E_STATE_WAITING) {
-                    //TODO look at other elevators
-                    //TODO respect potential points
-                    floorsWithP.add(p.getFloor());
+                if (shouldInsert) {
+                    passFloors.add(new AbstractMap.SimpleEntry<>(passenger, points));
                 }
             }
 
-            for (Elevator elevator : myElevators) {
-                if (elevator.getNextFloor() != null) {
-                    floorsWithP.remove(elevator.getNextFloor());
-                    if (elevator.getState() != E_STATE_MOVING && elevator.getState() != E_STATE_CLOSING) {
-                        floorsWithP.remove(elevator.getFloor());
-                    }
+            //TODO pick most points
+            //  print("--- elevator " + e.getId() + " -- passFloors:  UNSORTED vvv");
+
+            printPassFloors(passFloors);
+
+            passFloors.sort(Comparator.comparing(Map.Entry::getValue));
+
+            //   print("--- elevator " + e.getId() + " -- passFloors:  SORTED");
+            printPassFloors(passFloors);
+
+            //     print("--- elevator " + e.getId() + " -- passFloors:  END ^^^ ");
+
+            buzyPass = passFloors.get(passFloors.size() - 1).getKey();
+
+            if (!Objects.equals(buzyPass.getDestFloor(), nearPassenger.getDestFloor())) {
+                print("Nearest and busiest floors not equal ! busy: " + buzyPass.getDestFloor() + " nearest:  " + nearPassenger.getDestFloor());
+            }
+            nearPassenger = buzyPass;
+            //      }
+        }
+
+        Set<Integer> floorsWithP = new HashSet<>();
+        for (Passenger p : allPass) {
+            if ((p.getState() == P_STATE_WAITING_ELEVATOR || p.getState() == P_STATE_RETURNING) &&
+                    elevatorCanPickUp(p, e)) {
+                floorsWithP.add(p.getFloor());
+            }
+        }
+
+        for (Elevator elevator : myElevators) {
+            if (elevator.getNextFloor() != null) {
+                floorsWithP.remove(elevator.getNextFloor());
+                if (elevator.getState() != E_STATE_MOVING && elevator.getState() != E_STATE_CLOSING) {
+                    floorsWithP.remove(elevator.getFloor());
                 }
             }
+        }
 
 
-            if (nearPassenger != null) {
+        if (nearPassenger != null) {
 
-                Integer pDestFloor = nearPassenger.getDestFloor();
-                //TODO remove floors if they didn't have passengers for way
+            Integer pDestFloor = nearPassenger.getDestFloor();
+            //TODO remove floors if they didn't have passengers for way
 
-                if (pDestFloor > eFloor) {
-                    floorsWithP.removeIf(integer -> integer > pDestFloor || integer < eFloor);
-                } else {
-                    floorsWithP.removeIf(integer -> integer > eFloor || integer < pDestFloor);
-                }
-
-                Integer nearCrowdFloor = getNearestFloor(e, floorsWithP);
-
-                if (!noMorePickUps && nearCrowdFloor != null && e.getPassengers().size() < 20   //TODO remove this condition
-                        && getDistance(nearCrowdFloor, e.getFloor()) < getDistance(pDestFloor, e.getFloor())) {
-                    print(e.getId() + " going to intermediate floor " + nearCrowdFloor);
-                    goToFloor(e, nearCrowdFloor);
-                } else {
-                    goToFloor(e, pDestFloor);
-                }
-
+            if (pDestFloor > eFloor) {
+                floorsWithP.removeIf(integer -> integer > pDestFloor || integer < eFloor);
             } else {
+                floorsWithP.removeIf(integer -> integer > eFloor || integer < pDestFloor);
+            }
 
-                Integer targetFloor = null;
-                for (FloorPotential fp : potentialFloorsByTotalPoints) {
-                    if (floorsWithP.contains(fp.floor)) {
-                        targetFloor = fp.floor;
-                        break;
-                    }
-                }
+            Integer nearCrowdFloor = getNearestFloor(e, floorsWithP);
 
-                if (targetFloor != null) {
-                    goToFloor(e, targetFloor);
-                } else if (eFloor == 1) {
-                    goToFloor(e, 2);
-                } else {
-                    goToFloor(e, eFloor - 1);
+            if (!noMorePickUps && nearCrowdFloor != null && e.getPassengers().size() < 20   //TODO remove this condition
+                    && getDistance(nearCrowdFloor, e.getFloor()) < getDistance(pDestFloor, e.getFloor())) {
+                print(e.getId() + " going to intermediate floor " + nearCrowdFloor);
+                goToFloor(e, nearCrowdFloor);
+            } else {
+                goToFloor(e, pDestFloor);
+            }
+
+        } else {
+
+            Integer targetFloor = null;
+            for (FloorPotential fp : potentialFloorsByTotalPoints) {
+                if (floorsWithP.contains(fp.floor)) {
+                    targetFloor = fp.floor;
+                    break;
                 }
+            }
+
+            if (targetFloor != null) {
+                goToFloor(e, targetFloor);
+            } else if (eFloor == 1) {
+                goToFloor(e, 2);
+            } else {
+                goToFloor(e, eFloor - 1);
             }
         }
     }
@@ -426,7 +445,7 @@ public class Strategy extends BaseStrategy {
             return true;
         }
 
-        if (nobodyOnFloor(e)) {
+        if (nobodyOnElevatorFloor(e)) {
 
             if (tick > 2000 || !e.getFloor().equals(1)) {
                 return true;
@@ -436,14 +455,14 @@ public class Strategy extends BaseStrategy {
         return false;
     }
 
-    private boolean nobodyOnFloor(Elevator e) {
+    private boolean nobodyOnElevatorFloor(Elevator e) { //TODO check points
         for (Passenger pass : allPass) {
             if (Objects.equals(pass.getFloor(), e.getFloor()) && Objects.equals(pass.getFromFloor(), e.getFloor())
                     && (pass.getState() == P_STATE_WAITING_ELEVATOR ||/* pass.getState() == P_STATE_RETURNING ||*/
                     //  (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && pass.getElevator().equals(e.getId()))
                     pass.getState() == P_STATE_RETURNING ||
                     (pass.getState() == P_STATE_MOVING_TO_ELEVATOR && isMyElevator(pass.getElevator()))
-            )) {
+            ) && elevatorCanPickUp(pass, e)) {
                 return false;
             }
         }
