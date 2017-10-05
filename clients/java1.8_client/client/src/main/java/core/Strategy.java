@@ -34,8 +34,6 @@ public class Strategy extends BaseStrategy {
     private int tick;
     private int ticksToEnd;
     private boolean noMorePickUps;
-    private Map<Integer, FloorPotential> floorPotential;
-    private ArrayList<FloorPotential> potentialFloorsByTotalPoints;
 
     private long totalMs;
 
@@ -73,8 +71,6 @@ public class Strategy extends BaseStrategy {
     }
 
     private void doMove() {
-        calcFloorPotential();
-
 
         for (Passenger p : allPass) {
             if (p.getState() >= P_STATE_MOVING_TO_FLOOR) {
@@ -172,14 +168,14 @@ public class Strategy extends BaseStrategy {
         return false;
     }
 
-    private void calcFloorPotential() {
-        floorPotential = new HashMap<>();
+    private List<FloorPotential> calcFloorPotential(Elevator e) {
+        HashMap<Integer, FloorPotential> floorPotential = new HashMap<>();
         for (int i = 1; i <= 9; i++) {
             floorPotential.put(i, new FloorPotential(i));
         }
 
         for (Passenger p : allPass) {
-            if (p.getState() >= P_STATE_MOVING_TO_FLOOR) {
+            if (p.getState() >= P_STATE_MOVING_TO_FLOOR || !passWillStayUntilElevatorCome(p, e)) {
                 continue;
             }
 
@@ -187,15 +183,22 @@ public class Strategy extends BaseStrategy {
         }
 
 
-        potentialFloorsByTotalPoints = new ArrayList<>(floorPotential.values());
+        ArrayList<FloorPotential> potentialFloorsByTotalPoints = new ArrayList<>(floorPotential.values());
 
-        potentialFloorsByTotalPoints.sort(Comparator.comparing(fp -> {
-            return fp.pointsTotal;
-            //return Collections.max(fp.destPotential.values()); //results is equal to 3904
-        }, Collections.reverseOrder()));
+        potentialFloorsByTotalPoints.sort((o1, o2) -> {
+            int compare = Integer.compare(o2.pointsTotal, o1.pointsTotal);
+            if (compare == 0) {
+                compare = Integer.compare(Math.abs(o1.floor - e.getFloor()), Math.abs(o2.floor - e.getFloor()));
+                if (compare == 0) {
+                   compare = Integer.compare(o1.floor, o2.floor);
+                }
+            }
+            return compare;
+        });
         print("By pointsTotal");
         printPotentials(potentialFloorsByTotalPoints);
 
+        return potentialFloorsByTotalPoints;
          /*
         asList.sort(Comparator.comparing(fp -> fp.pointsDown, Collections.reverseOrder()));
         print("By pointsDown");
@@ -343,6 +346,7 @@ public class Strategy extends BaseStrategy {
 
         } else {
 
+            List<FloorPotential> potentialFloorsByTotalPoints = calcFloorPotential(e);
             Integer targetFloor = null;
             for (FloorPotential fp : potentialFloorsByTotalPoints) {
                 if (floorsWithP.contains(fp.floor)) {
