@@ -39,7 +39,8 @@ public class Main {
         //runProc("python", "clients/python2_client/client/run.py");
         //runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_3859.jar");
         //runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_3904.jar");
-        runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_4556.jar");
+        //runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_4556.jar");
+        runProc("java", "-jar", "clients/java1.8_client/client/java1.8_client_4576.jar");
         Thread.sleep(1000);
     }
 

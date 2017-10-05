@@ -8,6 +8,8 @@ import java.util.*;
 
 public class Strategy extends BaseStrategy {
 
+    public static final float SPEED_DOWNWARD = 1 / 50f;
+
     public static final int E_STATE_WAITING = 0;
     public static final int E_STATE_MOVING = 1;
     public static final int E_STATE_OPENING = 2;
@@ -66,7 +68,7 @@ public class Strategy extends BaseStrategy {
         totalMs += System.currentTimeMillis() - start;
 
         if (tick == END) {
-            print("end, timeElapsed " + totalMs + " mean time per tick " + (totalMs / 7200f));
+            print("end, timeElapsed " + totalMs + "ms, mean time per tick " + (totalMs / 7200f) + "ms");
         }
     }
 
@@ -144,7 +146,7 @@ public class Strategy extends BaseStrategy {
         }
 
         for (Elevator e : myElevators) {
-
+            //  print("Elevator speed " + e.getId() + " " + e.getSpeed());
             moveElevator(e);
         }
     }
@@ -303,7 +305,7 @@ public class Strategy extends BaseStrategy {
         Set<Integer> floorsWithP = new HashSet<>();
         for (Passenger p : allPass) {
             if ((p.getState() == P_STATE_WAITING_ELEVATOR || p.getState() == P_STATE_RETURNING) &&
-                    elevatorCanPickUp(p, e)) {
+                    elevatorCanPickUp(p, e) && passWillStayUntilElevatorCome(p, e)) {
                 floorsWithP.add(p.getFloor());
             }
         }
@@ -357,6 +359,13 @@ public class Strategy extends BaseStrategy {
                 goToFloor(e, eFloor - 1);
             }
         }
+    }
+
+    private boolean passWillStayUntilElevatorCome(Passenger p, Elevator e) {
+        Double speed = p.getY() > e.getY() ? e.getSpeed() : SPEED_DOWNWARD;
+        double ticksToCome = Math.abs(p.getY() - e.getY()) / speed;
+
+        return p.getTimeToAway() > ticksToCome;
     }
 
     private boolean notFullOnFloor(Elevator e, Integer floor) {
